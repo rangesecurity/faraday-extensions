@@ -30,11 +30,11 @@ pub mod sanctioned_transfer_hook {
     pub fn initialize_extra_account_meta_list(
         ctx: Context<InitializeExtraAccountMetaList>,
     ) -> Result<()> {
-        Ok(())
+        InitializeExtraAccountMetaList::handler(ctx)
     }
 
     pub fn transfer_hook(ctx: Context<TransferHook>, amount: u64) -> Result<()> {
-        Ok(())
+        TransferHook::handler(ctx, amount)
     }
 
     pub fn fallback<'info>(

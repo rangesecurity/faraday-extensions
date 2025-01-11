@@ -29,6 +29,8 @@ pub struct InitializeExtraAccountMetaList<'info> {
     pub block_list: Account<'info, BlockList>,
 }
 
+impl InitializeExtraAccountMetaList<'_> {
+
 pub fn handler(ctx: Context<InitializeExtraAccountMetaList>) -> Result<()> {
     // index 0-3 are the accounts required for token transfer (source, mint, destination, owner)
     // index 4 is address of ExtraAccountMetaList account
@@ -44,12 +46,8 @@ pub fn handler(ctx: Context<InitializeExtraAccountMetaList>) -> Result<()> {
             false,
         )?,
         // index 8 
-        ExtraAccountMeta::new_with_seeds(
-            &[
-                Seed::Literal {
-                    bytes: "block_list".as_bytes().to_vec()
-                }
-            ],
+        ExtraAccountMeta::new_with_pubkey(
+            &ctx.accounts.block_list.key(),
             false,
             false
         )?,
@@ -129,5 +127,7 @@ pub fn handler(ctx: Context<InitializeExtraAccountMetaList>) -> Result<()> {
         &account_metas,
     )?;
 
+    msg!("extra account {}", ctx.accounts.extra_account_meta_list.key);
     Ok(())
+}
 }

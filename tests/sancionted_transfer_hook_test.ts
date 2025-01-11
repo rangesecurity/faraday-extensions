@@ -26,6 +26,9 @@ import {
     getOrCreateAssociatedTokenAccount,
     addExtraAccountsToInstruction,
     createTransferCheckedWithTransferHookInstruction,
+    getTransferHook,
+    getMint,
+    getExtraAccountMetaAddress,
 } from "@solana/spl-token";
 
 describe("transfer-hook", () => {
@@ -116,7 +119,7 @@ describe("transfer-hook", () => {
 
     it("Create Mint Account with Transfer Hook Extension", async () => {
         const extensions = [ExtensionType.TransferHook];
-        const mintLen = getMintLen([]);
+        const mintLen = getMintLen(extensions);
         const lamports =
             await provider.connection.getMinimumBalanceForRentExemption(mintLen);
 
@@ -128,12 +131,12 @@ describe("transfer-hook", () => {
                 lamports: lamports,
                 programId: TOKEN_2022_PROGRAM_ID,
             }),
-            //createInitializeTransferHookInstruction(
-            //    mint.publicKey,
-            //    wallet.publicKey,
-            //    program.programId, // Transfer Hook Program ID
-            //    TOKEN_2022_PROGRAM_ID,
-            //),
+            createInitializeTransferHookInstruction(
+                mint.publicKey,
+                wallet.publicKey,
+                program.programId, // Transfer Hook Program ID
+                TOKEN_2022_PROGRAM_ID,
+            ),
             createInitializeMintInstruction(
                 mint.publicKey,
                 decimals,
@@ -234,6 +237,12 @@ describe("transfer-hook", () => {
             [wallet.payer],
         );
         console.log("Transaction Signature:", txSig);
+        const extraAccountsInfo = await connection.getAccountInfoAndContext(
+            extraAccountMetaListPDA,
+        )
+        //await new Promise((resolve) => setTimeout(resolve, 5000));
+
+        console.log("extra account info", extraAccountsInfo);
     });
 
     it("Transfer Hook with Extra Account Meta", async () => {
@@ -252,8 +261,17 @@ describe("transfer-hook", () => {
           [],
           TOKEN_2022_PROGRAM_ID,
         );
-
-        const ix = await createTransferCheckedWithTransferHookInstruction(
+        const mintInfo = await getMint(connection, mint.publicKey, "confirmed", TOKEN_2022_PROGRAM_ID);
+        const transferHook = getTransferHook(
+            mintInfo
+        )
+        const extraAccountsAccount = getExtraAccountMetaAddress(mint.publicKey, transferHook.programId);
+        console.log("extra accounts key ", extraAccountsAccount.toString());
+        const extraAccountsInfo = await connection.getAccountInfoAndContext(
+            extraAccountsAccount,
+        )
+        console.log("extra account info", extraAccountsInfo);
+        /*const ix = await createTransferCheckedWithTransferHookInstruction(
             connection,
             sourceTokenAccount,
             mint.publicKey,
@@ -264,8 +282,15 @@ describe("transfer-hook", () => {
             [],
             "confirmed",
             TOKEN_2022_PROGRAM_ID,
+        );*/
+        const ix = await addExtraAccountsToInstruction(
+            connection,
+            transferInstruction,
+            mint.publicKey,
+            "confirmed",
+            TOKEN_2022_PROGRAM_ID,
         );
-        //console.log(ix);
+        console.log(ix);
 
       
         // Automatic account resolution not working correctly for the WSol PDA
@@ -321,7 +346,7 @@ describe("transfer-hook", () => {
       
         console.log(transferInstruction);
         const transaction = new Transaction().add(
-            transferInstruction,
+            ix,
         );
         try {
             const txSig = await sendAndConfirmTransaction(

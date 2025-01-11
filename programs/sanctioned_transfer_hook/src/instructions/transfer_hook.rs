@@ -18,21 +18,13 @@ use {
 #[derive(Accounts)]
 pub struct TransferHook<'info> {
     /// CHECK: validated by token2022 program
-    #[account(
-        mut
-    //    token::mint = mint,
-    //    token::authority = owner,
-    )]
     pub source_token: UncheckedAccount<'info>,
     /// CHECK: validated through extra_account_meta_list seed
     pub mint: UncheckedAccount<'info>,
     /// CHECK: validated by token2022 program
-    #[account(
-        mut
-    //    token::mint = mint,
-    )]
     pub destination_token: UncheckedAccount<'info>,
-    pub owner: Signer<'info>,
+    /// CHECK: owner of source token account, may be a delegated signer
+    pub owner: UncheckedAccount<'info>,
     /// CHECK: ExtraAccountMetaList Account,
     #[account(
         seeds = [b"extra-account-metas", mint.key().as_ref()],
@@ -65,7 +57,7 @@ impl TransferHook<'_> {
 
         }
         {
-            // check to see if receivint token account owner is denied
+            // check to see if receiving token account owner is denied
             let data = ctx.accounts.destination_token.data.try_borrow().unwrap();
             let receiving_account = StateWithExtensions::<TokenAccount>::unpack(&data)?;
 
@@ -76,28 +68,15 @@ impl TransferHook<'_> {
                 ErrorCode::Denied
             );
         }
-        let decimals = {
-            let data = ctx.accounts.mint.data.try_borrow().unwrap();
-            StateWithExtensions::<Mint>::unpack(
-                &data
-            )?.base.decimals
-        };
-        msg!("Transfer tokens using delegate PDA");
-    
-        // transfer tokens from sender to delegate token account using delegate PDA
-        transfer_checked(
-            CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
-                TransferChecked {
-                    from: ctx.accounts.source_token.to_account_info(),
-                    mint: ctx.accounts.mint.to_account_info(),
-                    to: ctx.accounts.destination_token.to_account_info(),
-                    authority: ctx.accounts.owner.to_account_info(),
-                },
-            ),
-            amount,
-            decimals,
-        )?;
+        {
+            // check to see if owner is denied
+            require!(
+                !ctx.accounts.block_list_account.transfer_denied(
+                    ctx.accounts.owner.key()
+                ),
+                ErrorCode::Denied
+            );
+        }
         Ok(())
     }
 }
