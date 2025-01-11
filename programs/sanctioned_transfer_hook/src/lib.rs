@@ -27,6 +27,12 @@ pub mod sanctioned_transfer_hook {
     ) -> Result<()> {
         ManageBlockList::add_handler(ctx, addresses)
     }
+    pub fn remove_from_block_list(
+        ctx: Context<ManageBlockList>,
+        addresses: Vec<Pubkey>,
+    ) -> Result<()> {
+        ManageBlockList::remove_handler(ctx, addresses)
+    }
     pub fn initialize_extra_account_meta_list(
         ctx: Context<InitializeExtraAccountMetaList>,
     ) -> Result<()> {
@@ -50,7 +56,7 @@ pub mod sanctioned_transfer_hook {
             TransferHookInstruction::Execute { amount } => {
                 let amount_bytes = amount.to_le_bytes();
     
-                // invoke custom transfer hook instruction on our program
+                // invoke transfer hook to check if one of the token accounts, or the owner is in the block list
                 __private::__global::transfer_hook(program_id, accounts, &amount_bytes)?;
             }
             _ => return Err(ProgramError::InvalidInstructionData.into()),
