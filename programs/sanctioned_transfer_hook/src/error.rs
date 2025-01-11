@@ -10,4 +10,6 @@ pub enum ErrorCode {
     Unauthorized,
     #[msg("Authority is denied")]
     Denied,
+    #[msg("Provided account meta list account is invalid")]
+    InvalidExtraAccountMetasList,
 }

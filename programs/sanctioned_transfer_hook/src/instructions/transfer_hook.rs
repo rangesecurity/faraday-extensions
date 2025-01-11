@@ -1,19 +1,14 @@
 use {
-    crate::{block_list::BlockList, error::ErrorCode}, anchor_lang::{
-        prelude::*,
-        system_program::{create_account, CreateAccount},
-    }, anchor_spl::{
-        associated_token::AssociatedToken,  token_2022::{
-            spl_token_2022::{
-                state::{Account as TokenAccount, Mint},
-                extension::StateWithExtensions
-            }, Token2022
-        }, token_interface::{transfer_checked, TokenInterface, TransferChecked}
-    }, spl_tlv_account_resolution::{
-        account::ExtraAccountMeta, seeds::Seed, state::ExtraAccountMetaList,
-    }, spl_transfer_hook_interface::instruction::ExecuteInstruction
+    crate::{block_list::BlockList, error::ErrorCode},
+    anchor_lang::prelude::*,
+    anchor_spl::{
+        associated_token::AssociatedToken,
+        token_2022::{
+            spl_token_2022::{extension::StateWithExtensions, state::Account as TokenAccount},
+            Token2022,
+        },
+    },
 };
-
 
 #[derive(Accounts)]
 pub struct TransferHook<'info> {
@@ -37,24 +32,31 @@ pub struct TransferHook<'info> {
 }
 
 impl TransferHook<'_> {
-    pub fn handler(
-        ctx: Context<TransferHook>,
-        amount: u64
-    ) -> Result<()> {
-        // check if any of the source or destination token accounts are denied
-        // check if the delegate is denied
+    pub fn handler(ctx: Context<TransferHook>, _amount: u64) -> Result<()> {
+        Self::validations(&ctx)
+    }
+    fn validations(ctx: &Context<TransferHook>) -> Result<()> {
+        require!(
+            ctx.accounts.extra_account_meta_list.owner.eq(&crate::ID),
+            ErrorCode::InvalidExtraAccountMetasList
+        );
+        require!(
+            BlockList::derive_pda(ctx.accounts.mint.key())
+                .0
+                .eq(ctx.accounts.extra_account_meta_list.key),
+            ErrorCode::InvalidExtraAccountMetasList
+        );
         {
             // check to see if source token account owner is denied
             let data = ctx.accounts.source_token.data.try_borrow().unwrap();
             let source_account = StateWithExtensions::<TokenAccount>::unpack(&data)?;
 
             require!(
-                !ctx.accounts.block_list_account.transfer_denied(
-                    source_account.base.owner
-                ),
+                !ctx.accounts
+                    .block_list_account
+                    .transfer_denied(source_account.base.owner),
                 ErrorCode::Denied
             );
-
         }
         {
             // check to see if receiving token account owner is denied
@@ -62,18 +64,18 @@ impl TransferHook<'_> {
             let receiving_account = StateWithExtensions::<TokenAccount>::unpack(&data)?;
 
             require!(
-                !ctx.accounts.block_list_account.transfer_denied(
-                    receiving_account.base.owner
-                ),
+                !ctx.accounts
+                    .block_list_account
+                    .transfer_denied(receiving_account.base.owner),
                 ErrorCode::Denied
             );
         }
         {
             // check to see if owner is denied
             require!(
-                !ctx.accounts.block_list_account.transfer_denied(
-                    ctx.accounts.owner.key()
-                ),
+                !ctx.accounts
+                    .block_list_account
+                    .transfer_denied(ctx.accounts.owner.key()),
                 ErrorCode::Denied
             );
         }

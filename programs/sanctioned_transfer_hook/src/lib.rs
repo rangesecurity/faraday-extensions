@@ -16,15 +16,10 @@ pub mod sanctioned_transfer_hook {
     use spl_transfer_hook_interface::instruction::TransferHookInstruction;
 
     use super::*;
-    pub fn initialize(
-        ctx: Context<Initialize>
-    ) -> Result<()> {
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         Initialize::handler(ctx)
     }
-    pub fn add_to_block_list(
-        ctx: Context<ManageBlockList>,
-        addresses: Vec<Pubkey>,
-    ) -> Result<()> {
+    pub fn add_to_block_list(ctx: Context<ManageBlockList>, addresses: Vec<Pubkey>) -> Result<()> {
         ManageBlockList::add_handler(ctx, addresses)
     }
     pub fn remove_from_block_list(
@@ -55,7 +50,7 @@ pub mod sanctioned_transfer_hook {
         match instruction {
             TransferHookInstruction::Execute { amount } => {
                 let amount_bytes = amount.to_le_bytes();
-    
+
                 // invoke transfer hook to check if one of the token accounts, or the owner is in the block list
                 __private::__global::transfer_hook(program_id, accounts, &amount_bytes)?;
             }

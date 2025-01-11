@@ -1,23 +1,21 @@
-use {
-    anchor_lang::prelude::*,
-    crate::state::block_list::BlockList,
-};
-
+use {crate::{state::block_list::BlockList, MAX_ADDRESSES_PER_LIST}, anchor_lang::prelude::*};
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
-    
+
     #[account(
         init,
         seeds = [b"block_list"],
         payer = authority,
-        space = BlockList::space(300),
+        // max relloac space is 10240 bytes which is enough for 320 accounts
+        // however the discriminator is 8 bytes, so we can only support 319 accounts
+        space = BlockList::space(MAX_ADDRESSES_PER_LIST as usize),
         bump,
     )]
     pub block_list: Account<'info, BlockList>,
-    
+
     pub system_program: Program<'info, System>,
 }
 
