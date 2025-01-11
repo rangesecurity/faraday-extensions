@@ -7,6 +7,7 @@ import {
     Transaction,
     sendAndConfirmTransaction,
     Keypair,
+    SendTransactionError,
 } from "@solana/web3.js";
 import {
     ExtensionType,
@@ -21,9 +22,10 @@ import {
     getAssociatedTokenAddressSync,
     createApproveInstruction,
     createSyncNativeInstruction,
-    NATIVE_MINT,
     TOKEN_PROGRAM_ID,
     getOrCreateAssociatedTokenAccount,
+    addExtraAccountsToInstruction,
+    createTransferCheckedWithTransferHookInstruction,
 } from "@solana/spl-token";
 
 describe("transfer-hook", () => {
@@ -38,6 +40,7 @@ describe("transfer-hook", () => {
     // Generate keypair to use as address for the transfer-hook enabled mint
     const mint = new Keypair();
     const decimals = 9;
+
 
     // Sender token account address
     const sourceTokenAccount = getAssociatedTokenAddressSync(
@@ -71,47 +74,49 @@ describe("transfer-hook", () => {
         program.programId
     );
 
-    // Sender wSOL token account address
-    const senderWSolTokenAccount = getAssociatedTokenAddressSync(
-        NATIVE_MINT, // mint
-        wallet.publicKey // owner
-    );
-
-    // Delegate PDA wSOL token account address, to receive wSOL tokens from sender
-    const delegateWSolTokenAccount = getAssociatedTokenAddressSync(
-        NATIVE_MINT, // mint
-        delegatePDA, // owner
-        true // allowOwnerOffCurve
-    );
 
     const [blockListPda] = PublicKey.findProgramAddressSync(
         [Buffer.from("block_list")],
         program.programId
     );
-
+    console.log("extraAccountList", extraAccountMetaListPDA.toString());
+    console.log("blockList", blockListPda.toString());
     // Create the two WSol token accounts as part of setup
-    before(async () => {
+    /*before(async () => {
         // WSol Token Account for sender
-        await getOrCreateAssociatedTokenAccount(
-            connection,
-            wallet.payer,
-            NATIVE_MINT,
-            wallet.publicKey
-        );
 
-        // WSol Token Account for delegate PDA
-        await getOrCreateAssociatedTokenAccount(
-            connection,
-            wallet.payer,
-            NATIVE_MINT,
-            delegatePDA,
-            true
+        const ix = createAssociatedTokenAccountInstruction(
+            wallet.publicKey,
+            senderTokenAccount,
+            wallet.publicKey,
+            NATIVE_MINT_2022,
+            TOKEN_2022_PROGRAM_ID,
+            ASSOCIATED_TOKEN_PROGRAM_ID,
         );
-    });
+        const ix2 = createAssociatedTokenAccountInstruction(
+            wallet.publicKey,
+            delegateTokenAccount,
+            delegatePDA,
+            NATIVE_MINT_2022,
+            TOKEN_2022_PROGRAM_ID,
+            ASSOCIATED_TOKEN_PROGRAM_ID,
+        );
+        const tx = new Transaction().add(
+            ix,
+        ).add(ix2);
+        await sendAndConfirmTransaction(
+            connection,
+            tx,
+            [wallet.payer],
+            {
+                skipPreflight: false,
+            }
+        )
+    });*/
 
     it("Create Mint Account with Transfer Hook Extension", async () => {
         const extensions = [ExtensionType.TransferHook];
-        const mintLen = getMintLen(extensions);
+        const mintLen = getMintLen([]);
         const lamports =
             await provider.connection.getMinimumBalanceForRentExemption(mintLen);
 
@@ -123,12 +128,12 @@ describe("transfer-hook", () => {
                 lamports: lamports,
                 programId: TOKEN_2022_PROGRAM_ID,
             }),
-            createInitializeTransferHookInstruction(
-                mint.publicKey,
-                wallet.publicKey,
-                program.programId, // Transfer Hook Program ID
-                TOKEN_2022_PROGRAM_ID,
-            ),
+            //createInitializeTransferHookInstruction(
+            //    mint.publicKey,
+            //    wallet.publicKey,
+            //    program.programId, // Transfer Hook Program ID
+            //    TOKEN_2022_PROGRAM_ID,
+            //),
             createInitializeMintInstruction(
                 mint.publicKey,
                 decimals,
@@ -145,7 +150,6 @@ describe("transfer-hook", () => {
         );
         console.log(`Transaction Signature: ${txSig}`);
     });
-
     it("Creates Block List", async () => {
         const ix = await program.methods
             .initialize()
@@ -200,7 +204,7 @@ describe("transfer-hook", () => {
             connection,
             transaction,
             [wallet.payer],
-            { skipPreflight: true },
+            { skipPreflight: false },
         );
 
         console.log(`Transaction Signature: ${txSig}`);
@@ -214,7 +218,6 @@ describe("transfer-hook", () => {
                 payer: wallet.publicKey,
                 extraAccountMetaList: extraAccountMetaListPDA,
                 mint: mint.publicKey,
-                wsolMint: NATIVE_MINT,
                 tokenProgram: TOKEN_2022_PROGRAM_ID,
                 associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
                 blockList: blockListPda,
@@ -233,5 +236,110 @@ describe("transfer-hook", () => {
         console.log("Transaction Signature:", txSig);
     });
 
-    it("Transfer Hook with Extra Account Meta", async () => { });
+    it("Transfer Hook with Extra Account Meta", async () => {
+        // 1 tokens
+        const amount = 1 * 10 ** decimals;
+      
+      
+        // Standard token transfer instruction
+        const transferInstruction = createTransferCheckedInstruction(
+          sourceTokenAccount,
+          mint.publicKey,
+          destinationTokenAccount,
+          wallet.publicKey,
+          amount,
+          decimals,
+          [],
+          TOKEN_2022_PROGRAM_ID,
+        );
+
+        const ix = await createTransferCheckedWithTransferHookInstruction(
+            connection,
+            sourceTokenAccount,
+            mint.publicKey,
+            destinationTokenAccount,
+            wallet.publicKey,
+            BigInt(amount),
+            decimals,
+            [],
+            "confirmed",
+            TOKEN_2022_PROGRAM_ID,
+        );
+        //console.log(ix);
+
+      
+        // Automatic account resolution not working correctly for the WSol PDA
+        // Manually add all the extra accounts required by the transfer hook instruction
+        // Also include the address of the ExtraAccountMetaList account and Transfer Hook Program
+        transferInstruction.keys.push(
+          //{
+          //  pubkey: mint.publicKey,
+          //  isSigner: false,
+          //  isWritable: false,
+          //},
+          //{
+          //  pubkey: TOKEN_2022_PROGRAM_ID,
+          //  isSigner: false,
+          //  isWritable: false,
+          //},
+          //{
+          //  pubkey: new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"),
+          //  isSigner: false,
+          //  isWritable: false,
+          //},
+          {
+            pubkey: blockListPda,
+            isSigner: false,
+            isWritable: false
+          },
+          /*{
+            pubkey: delegatePDA,
+            isSigner: false,
+            isWritable: false,
+          },
+          {
+            pubkey: destinationTokenAccount,
+            isSigner: false,
+            isWritable: true,
+          },
+          {
+            pubkey: sourceTokenAccount,
+            isSigner: false,
+            isWritable: true,
+          },*/
+          {
+            pubkey: program.programId,
+            isSigner: false,
+            isWritable: false,
+          },
+          {
+            pubkey: extraAccountMetaListPDA,
+            isSigner: false,
+            isWritable: false,
+          },
+        );
+      
+        console.log(transferInstruction);
+        const transaction = new Transaction().add(
+            transferInstruction,
+        );
+        try {
+            const txSig = await sendAndConfirmTransaction(
+                connection,
+                transaction,
+                [wallet.payer],
+              );
+              console.log("Transfer Signature:", txSig);
+        } catch (error) {
+            if (error instanceof SendTransactionError) {
+                console.log("Error logs:", error.logs); // error.logs will show the program logs
+                // You can check for specific error messages
+                if (error.message.includes("invalid account data for instruction")) {
+                    // Handle this specific error
+                }
+            }
+            throw error; // Re-throw if you want the test to fail
+        }
+
+      });
 });

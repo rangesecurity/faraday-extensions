@@ -17,3 +17,6 @@ wallet = "~/.config/solana/id.json"
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
 
+[test.validator]
+log_messages_bytes_limit = 100000000000
+trace_mode = true

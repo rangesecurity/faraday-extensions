@@ -34,7 +34,7 @@ pub fn handler(ctx: Context<InitializeExtraAccountMetaList>) -> Result<()> {
     // index 4 is address of ExtraAccountMetaList account
     let account_metas = vec![
         // index 5, token mint
-        ExtraAccountMeta::new_with_pubkey(&ctx.accounts.mint.key(), false, false)?,
+        //ExtraAccountMeta::new_with_pubkey(&ctx.accounts.mint.key(), false, false)?,
         // index 6, token program
         ExtraAccountMeta::new_with_pubkey(&ctx.accounts.token_program.key(), false, false)?,
         // index 7, associated token program
@@ -43,6 +43,17 @@ pub fn handler(ctx: Context<InitializeExtraAccountMetaList>) -> Result<()> {
             false,
             false,
         )?,
+        // index 8 
+        ExtraAccountMeta::new_with_seeds(
+            &[
+                Seed::Literal {
+                    bytes: "block_list".as_bytes().to_vec()
+                }
+            ],
+            false,
+            false
+        )?,
+        /*
         // index 8, delegate PDA
         ExtraAccountMeta::new_with_seeds(
             &[Seed::Literal {
@@ -82,7 +93,7 @@ pub fn handler(ctx: Context<InitializeExtraAccountMetaList>) -> Result<()> {
             ],
             false,
             false
-        )?,
+        )?,*/
     ];
 
     // calculate account size
