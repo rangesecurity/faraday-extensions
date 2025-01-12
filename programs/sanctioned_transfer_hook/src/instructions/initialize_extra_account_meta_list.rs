@@ -1,8 +1,7 @@
 use {
-    crate::block_list::BlockList,
+    crate::{block_list::BlockList, error::ErrorCode, management::Management},
     anchor_lang::{
-        prelude::*,
-        system_program::{create_account, CreateAccount},
+        prelude::*, solana_program::{program::invoke_signed, system_instruction}, system_program::{create_account, CreateAccount}
     },
     anchor_spl::{
         associated_token::AssociatedToken,
@@ -18,7 +17,11 @@ use {
 #[derive(Accounts)]
 pub struct InitializeExtraAccountMetaList<'info> {
     #[account(mut)]
-    payer: Signer<'info>,
+    authority: Signer<'info>,
+    #[account(
+        constraint = management.authority == authority.key() @ ErrorCode::Unauthorized
+    )]
+    pub management: Account<'info, Management>,
 
     /// CHECK: ExtraAccountMetaList Account, must use these seeds
     #[account(
@@ -32,13 +35,10 @@ pub struct InitializeExtraAccountMetaList<'info> {
     pub token_program: Program<'info, Token2022>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
-    pub block_list: Account<'info, BlockList>,
 }
 
 impl InitializeExtraAccountMetaList<'_> {
     pub fn handler(ctx: Context<InitializeExtraAccountMetaList>) -> Result<()> {
-        Self::validations(&ctx)?;
-
         // index 0-3 are the accounts required for token transfer (source, mint, destination, owner)
         // index 4 is address of ExtraAccountMetaList account
         let account_metas = vec![
@@ -51,7 +51,7 @@ impl InitializeExtraAccountMetaList<'_> {
                 false,
             )?,
             // index 7
-            ExtraAccountMeta::new_with_pubkey(&ctx.accounts.block_list.key(), false, false)?,
+            //ExtraAccountMeta::new_with_pubkey(&ctx.accounts.block_list.key(), false, false)?,
         ];
 
         // calculate account size
@@ -71,7 +71,7 @@ impl InitializeExtraAccountMetaList<'_> {
             CpiContext::new(
                 ctx.accounts.system_program.to_account_info(),
                 CreateAccount {
-                    from: ctx.accounts.payer.to_account_info(),
+                    from: ctx.accounts.authority.to_account_info(),
                     to: ctx.accounts.extra_account_meta_list.to_account_info(),
                 },
             )
@@ -86,14 +86,6 @@ impl InitializeExtraAccountMetaList<'_> {
             &mut ctx.accounts.extra_account_meta_list.try_borrow_mut_data()?,
             &account_metas,
         )?;
-        Ok(())
-    }
-    fn validations(ctx: &Context<InitializeExtraAccountMetaList>) -> Result<()> {
-        // validate the mint is an actual token mint
-        {
-            let data = ctx.accounts.mint.data.try_borrow().unwrap();
-            let _ = StateWithExtensions::<Mint>::unpack(&data)?;
-        }
         Ok(())
     }
 }

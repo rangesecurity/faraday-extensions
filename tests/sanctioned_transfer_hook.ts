@@ -85,12 +85,20 @@ describe("transfer-hook", () => {
         [Buffer.from("delegate")],
         program.programId
     );
-
+    const blockListNumber = 0; // Your number
+    const blockListNumberBuffer = Buffer.alloc(8);
+    blockListNumberBuffer.writeBigUInt64LE(BigInt(blockListNumber));
+    
 
     const [blockListPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("block_list")],
+        [Buffer.from("block_list"), blockListNumberBuffer],
         program.programId
     );
+
+    const [managementPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("management")],
+        program.programId
+    )
 
     it("Create Mint Account with Transfer Hook Extension", async () => {
         const extensions = [ExtensionType.TransferHook];
@@ -130,15 +138,15 @@ describe("transfer-hook", () => {
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
     });
-    it("Creates Block List", async () => {
+    it("Initializes management account", async () => {
         const ix = await program.methods
-            .initialize()
-            .accounts({
-                authority: wallet.publicKey,
-                blockList: blockListPda,
-                systemProgram: SystemProgram.programId
-            })
-            .instruction();
+        .initialize()
+        .accounts({
+            authority: wallet.publicKey,
+            management: managementPda,
+            systemProgram: SystemProgram.programId
+        })
+        .instruction();
         const transaction = new Transaction().add(ix);
         const txSig = await sendAndConfirmTransaction(
             provider.connection,
@@ -146,8 +154,7 @@ describe("transfer-hook", () => {
             [wallet.payer],
         );
         console.log("Transaction Signature:", txSig);
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
+        await new Promise((resolve) => setTimeout(resolve, 1000));  
     })
 
 
@@ -212,7 +219,7 @@ describe("transfer-hook", () => {
                 mint: mint.publicKey,
                 tokenProgram: TOKEN_2022_PROGRAM_ID,
                 associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-                blockList: blockListPda,
+                management: managementPda,
             })
             .instruction();
 
@@ -229,6 +236,28 @@ describe("transfer-hook", () => {
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
     });
+    it("Creates Block List", async () => {
+        const ix = await program.methods
+            .createBlockListt(new anchor.BN(blockListNumber))
+            .accounts({
+                authority: wallet.publicKey,
+                management: managementPda,
+                mint: mint.publicKey,
+                extraAccountMetaList: extraAccountMetaListPDA,
+                blockList: blockListPda,
+                systemProgram: SystemProgram.programId
+            })
+            .instruction();
+        const transaction = new Transaction().add(ix);
+        const txSig = await sendAndConfirmTransaction(
+            provider.connection,
+            transaction,
+            [wallet.payer],
+        );
+        console.log("Transaction Signature:", txSig);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    })
 
     it("Transfer Hook with Extra Account Meta", async () => {
         // 1 tokens
@@ -276,6 +305,7 @@ describe("transfer-hook", () => {
             .accounts({
                 authority: wallet.publicKey,
                 blockList: blockListPda,
+                management: managementPda,
             }).instruction();
         const tx = new Transaction().add(
             ix
@@ -340,6 +370,7 @@ describe("transfer-hook", () => {
             .accounts({
                 authority: wallet.publicKey,
                 blockList: blockListPda,
+                management: managementPda,
             }).instruction();
         const tx = new Transaction().add(
             ix
@@ -397,6 +428,7 @@ describe("transfer-hook", () => {
             .accounts({
                 authority: wallet.publicKey,
                 blockList: blockListPda,
+                management: managementPda,
             }).instruction();
         const tx = new Transaction().add(
             ix
@@ -459,6 +491,7 @@ describe("transfer-hook", () => {
             .accounts({
                 authority: wallet.publicKey,
                 blockList: blockListPda,
+                management: managementPda,
             }).instruction();
         const tx = new Transaction().add(
             ix
@@ -479,6 +512,7 @@ describe("transfer-hook", () => {
             .accounts({
                 authority: wallet.publicKey,
                 blockList: blockListPda,
+                management: managementPda,
             }).instruction();
         const tx = new Transaction().add(
             ix

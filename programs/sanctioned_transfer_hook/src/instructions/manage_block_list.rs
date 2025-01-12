@@ -1,5 +1,5 @@
 use {
-    crate::{error::ErrorCode, state::block_list::BlockList, MAX_ADDRESSES_PER_LIST},
+    crate::{error::ErrorCode, management::Management, state::block_list::BlockList, MAX_ADDRESSES_PER_LIST},
     anchor_lang::prelude::*,
     std::collections::HashSet,
 };
@@ -7,10 +7,10 @@ use {
 #[derive(Accounts)]
 pub struct ManageBlockList<'info> {
     pub authority: Signer<'info>,
-
+    pub management: Account<'info, Management>,
     #[account(
         mut,
-        constraint = block_list.authority == authority.key() @ ErrorCode::Unauthorized
+        constraint = management.authority == authority.key() @ ErrorCode::Unauthorized
     )]
     pub block_list: Account<'info, BlockList>,
 }
