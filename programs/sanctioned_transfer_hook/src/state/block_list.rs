@@ -21,7 +21,4 @@ impl BlockList {
     pub fn transfer_denied(&self, authority: Pubkey) -> bool {
         self.denied_addresses.contains(&authority)
     }
-    pub fn derive_pda(mint: Pubkey) -> (Pubkey, u8) {
-        Pubkey::find_program_address(&[b"extra-account-metas", mint.as_ref()], &crate::ID)
-    }
 }

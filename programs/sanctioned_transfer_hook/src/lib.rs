@@ -37,7 +37,7 @@ pub mod sanctioned_transfer_hook {
         InitializeExtraAccountMetaList::handler(ctx)
     }
 
-    pub fn transfer_hook(ctx: Context<TransferHook>, amount: u64) -> Result<()> {
+    pub fn transfer_hook<'info>(ctx: Context<'_, '_, 'info, 'info,TransferHook<'info>>, amount: u64) -> Result<()> {
         TransferHook::handler(ctx, amount)
     }
 

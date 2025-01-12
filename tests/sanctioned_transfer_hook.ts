@@ -94,6 +94,15 @@ describe("transfer-hook", () => {
         [Buffer.from("block_list"), blockListNumberBuffer],
         program.programId
     );
+    const blockListNumber2 = 1; // Your number
+    const blockListNumberBuffer2 = Buffer.alloc(8);
+    blockListNumberBuffer2.writeBigUInt64LE(BigInt(blockListNumber2));
+    
+
+    const [blockListPda2] = PublicKey.findProgramAddressSync(
+        [Buffer.from("block_list"), blockListNumberBuffer2],
+        program.programId
+    );
 
     const [managementPda] = PublicKey.findProgramAddressSync(
         [Buffer.from("management")],
@@ -257,7 +266,30 @@ describe("transfer-hook", () => {
         console.log("Transaction Signature:", txSig);
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    })
+    });
+
+    it("Creates Block List", async () => {
+        const ix = await program.methods
+            .createBlockListt(new anchor.BN(blockListNumber2))
+            .accounts({
+                authority: wallet.publicKey,
+                management: managementPda,
+                mint: mint.publicKey,
+                extraAccountMetaList: extraAccountMetaListPDA,
+                blockList: blockListPda2,
+                systemProgram: SystemProgram.programId
+            })
+            .instruction();
+        const transaction = new Transaction().add(ix);
+        const txSig = await sendAndConfirmTransaction(
+            provider.connection,
+            transaction,
+            [wallet.payer],
+        );
+        console.log("Transaction Signature:", txSig);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    });
 
     it("Transfer Hook with Extra Account Meta", async () => {
         // 1 tokens
@@ -603,5 +635,67 @@ describe("transfer-hook", () => {
         console.log("Transaction signature:", txSig);
 
         await new Promise((resolve) => setTimeout(resolve, 1000));
+    });
+    it("Adds destination2 to second deny list", async () => {
+        const ix = await program.methods
+            .addToBlockList([
+                recipient2.publicKey
+            ])
+            .accounts({
+                authority: wallet.publicKey,
+                blockList: blockListPda2,
+                management: managementPda,
+            }).instruction();
+        const tx = new Transaction().add(
+            ix
+        );
+        const txSig = await sendAndConfirmTransaction(
+            provider.connection,
+            tx,
+            [wallet.payer]
+        );
+        console.log("Transaction signature:", txSig);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+    });
+    it("Fails to send to destination2 owner", async () => {
+        // 1 tokens
+        const amount = 1 * 10 ** decimals;
+
+
+        // Standard token transfer instruction
+        const transferInstruction = createTransferCheckedInstruction(
+            sourceTokenAccount,
+            mint.publicKey,
+            destination2TokenAccount,
+            wallet.publicKey,
+            amount,
+            decimals,
+            [],
+            TOKEN_2022_PROGRAM_ID,
+        );
+        const ix = await addExtraAccountsToInstruction(
+            connection,
+            transferInstruction,
+            mint.publicKey,
+            "confirmed",
+            TOKEN_2022_PROGRAM_ID,
+        );
+
+
+        const transaction = new Transaction().add(
+            ix,
+        );
+        try {
+            const txSig = await sendAndConfirmTransaction(
+                connection,
+                transaction,
+                [wallet.payer],
+            );
+            // If we get here, the transaction succeeded when it shouldn't have
+            assert.fail("Transaction should have failed");
+        } catch (error) {
+            // Verify it's the right type of error
+            expect(error).to.be.instanceOf(SendTransactionError);
+        }
     });
 });
