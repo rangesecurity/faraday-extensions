@@ -19,6 +19,9 @@ pub mod sanctioned_transfer_hook {
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         Initialize::handler(ctx)
     }
+    pub fn create_block_listt(ctx: Context<CreateBlockList>, list_number: u64) -> Result<()> {
+        CreateBlockList::handler(ctx, list_number)
+    }
     pub fn add_to_block_list(ctx: Context<ManageBlockList>, addresses: Vec<Pubkey>) -> Result<()> {
         ManageBlockList::add_handler(ctx, addresses)
     }
@@ -34,7 +37,7 @@ pub mod sanctioned_transfer_hook {
         InitializeExtraAccountMetaList::handler(ctx)
     }
 
-    pub fn transfer_hook(ctx: Context<TransferHook>, amount: u64) -> Result<()> {
+    pub fn transfer_hook<'info>(ctx: Context<'_, '_, 'info, 'info,TransferHook<'info>>, amount: u64) -> Result<()> {
         TransferHook::handler(ctx, amount)
     }
 
