@@ -16,6 +16,6 @@ pub mod rate_limits {
     use super::*;
 
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-        initialize::handler(ctx)
+        Initialize::handler(ctx)
     }
 }

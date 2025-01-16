@@ -1,40 +1,36 @@
 use anchor_lang::{prelude::*, solana_program::clock::UnixTimestamp};
-
+use crate::error::ErrorCode;
 use super::limiters::{LimiterEntry, RateLimitExt};
 
-// Add custom errors for rate limiting
-#[error_code]
-pub enum RateLimitError {
-    #[msg("Transfer would exceed rate limit for this period")]
-    RateLimitExceeded,
-    #[msg("Invalid period configuration")]
-    InvalidPeriodConfig,
-}
 
+/// Provides a rate limit implementation that rate limits transfers on a per-authority basis
 #[account]
 #[derive(Debug)]
-pub struct RateLimit {
-    /// Vector of rate limit entries for different authorities
-    pub entries: Vec<LimiterEntry>,
+pub struct AuthorityRateLimit {
     /// Maximum amount that can be transferred in a single period
     pub period_limit: u64,
     /// The start time of the current period
     pub current_period_start: UnixTimestamp,
     /// Duration of each period in seconds
     pub period_duration: u64,
+    /// token mint the rate limit is for
+    pub mint: Pubkey,
+    /// Vector of rate limit entries for different authorities
+    pub entries: Vec<LimiterEntry>,
     #[cfg(test)]
     pub current_time: UnixTimestamp,
 }
 
-impl RateLimit {
-    pub fn new(period_limit: u64, period_duration: u64, start_time: UnixTimestamp) -> Result<Self> {
-        require!(period_duration > 0, RateLimitError::InvalidPeriodConfig);
+impl AuthorityRateLimit {
+    pub fn new(period_limit: u64, period_duration: u64, start_time: UnixTimestamp, mint: Pubkey) -> Result<Self> {
+        require!(period_duration > 0, ErrorCode::InvalidPeriodConfig);
         #[cfg(test)]
         return Ok(Self {
             entries: Vec::new(),
             period_limit,
             current_period_start: start_time,
             period_duration,
+            mint,
             current_time: 0,
         });
 
@@ -43,6 +39,7 @@ impl RateLimit {
             entries: Vec::new(),
             period_limit,
             current_period_start: start_time,
+            mint,
             period_duration,           
         });
     }
@@ -57,6 +54,15 @@ impl RateLimit {
         }
     }
 
+    /// Returns Some(LimiterEntry) for the specific authority if it has a configured entry
+    /// 
+    /// Returns None for the specific authority if it has no configured entry
+    pub fn limiter_entry(&mut self, authority: Pubkey) -> Option<&mut LimiterEntry> {
+        self.entries
+            .iter_mut()
+            .find(|entry| entry.authority == authority)
+    }
+
     // Add method to update current time (for testing)
     #[cfg(test)]
     pub fn set_current_time(&mut self, time: UnixTimestamp) {
@@ -64,7 +70,7 @@ impl RateLimit {
     }
 }
 
-impl RateLimitExt for RateLimit {
+impl RateLimitExt for AuthorityRateLimit {
     fn start_time(&self) -> UnixTimestamp {
         self.current_period_start
     }
@@ -100,7 +106,11 @@ impl RateLimitExt for RateLimit {
         }
     }
 
-    fn check_and_update(&mut self, authority: Pubkey, amount: u64) -> Result<()> {
+    fn check_and_update(&mut self, authority: Option<Pubkey>, amount: u64) -> Result<()> {
+        let Some(authority) = authority else {
+            return Err(ErrorCode::InvalidCheckAndUpdate.into());
+        };
+
         // First check if we need to roll over to a new period
         self.roll_over();
 
@@ -116,7 +126,7 @@ impl RateLimitExt for RateLimit {
 
         // Check if the transfer would exceed the period limit
         if entry.value_transferred.saturating_add(amount) > period_limit {
-            return err!(RateLimitError::RateLimitExceeded);
+            return err!(ErrorCode::RateLimitExceeded);
         }
 
         // Update the transferred amount
@@ -124,11 +134,6 @@ impl RateLimitExt for RateLimit {
         Ok(())
     }
 
-    fn limiter_entry(&mut self, authority: Pubkey) -> Option<&mut LimiterEntry> {
-        self.entries
-            .iter_mut()
-            .find(|entry| entry.authority == authority)
-    }
 }
 
 #[cfg(test)]
@@ -138,30 +143,30 @@ mod tests {
     #[test]
     fn test_rate_limit_basic() {
         let start_time = 1000;
-        let mut rate_limit = RateLimit::new(100, 3600, start_time).unwrap(); // 100 tokens per hour
+        let mut rate_limit = AuthorityRateLimit::new(100, 3600, start_time, Default::default()).unwrap(); // 100 tokens per hour
         rate_limit.set_current_time(start_time + 1);
 
         let authority = Pubkey::new_unique();
 
         // First transfer should work
-        assert!(rate_limit.check_and_update(authority, 50).is_ok());
+        assert!(rate_limit.check_and_update(Some(authority), 50).is_ok());
         
         // Second transfer that would exceed limit should fail
-        assert!(rate_limit.check_and_update(authority, 51).is_err());
+        assert!(rate_limit.check_and_update(Some(authority), 51).is_err());
         
         // Small transfer still within limits should work
-        assert!(rate_limit.check_and_update(authority, 40).is_ok());
+        assert!(rate_limit.check_and_update(Some(authority), 40).is_ok());
     }
 
     #[test]
     fn test_period_rollover() {
         let start_time = 1000;
-        let mut rate_limit = RateLimit::new(100, 3600, start_time).unwrap();
+        let mut rate_limit = AuthorityRateLimit::new(100, 3600, start_time, Default::default()).unwrap();
         rate_limit.set_current_time(start_time + 1);
         let authority = Pubkey::new_unique();
 
         // Use up the limit
-        assert!(rate_limit.check_and_update(authority, 100).is_ok());
+        assert!(rate_limit.check_and_update(Some(authority), 100).is_ok());
         
         rate_limit.set_current_time(rate_limit.current_time+3600);
 
@@ -170,7 +175,7 @@ mod tests {
         rate_limit.roll_over();
         
         // Should be able to transfer again
-        assert!(rate_limit.check_and_update(authority, 100).is_ok());
+        assert!(rate_limit.check_and_update(Some(authority), 100).is_ok());
 
 
         rate_limit.set_current_time(rate_limit.current_time+9600);
