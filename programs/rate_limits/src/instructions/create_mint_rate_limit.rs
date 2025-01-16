@@ -81,7 +81,7 @@ impl CreateMintBasedRateLimit<'_> {
         account_metas.push(ExtraAccountMeta::new_with_pubkey(
             &ctx.accounts.rate_limit.key(),
             false,
-            false,
+            true,
         )?);
         let account_size = ctx.accounts.extra_account_meta_list.data_len();
         // calculate account size

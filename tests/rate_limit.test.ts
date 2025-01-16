@@ -156,7 +156,7 @@ describe("ratelimit-transfer-hook", () => {
 
     it("Create Token Accounts and Mint Tokens", async () => {
         // 100 tokens
-        const amount = 100 * 10 ** decimals;
+        const amount = 1000 * 10 ** decimals;
 
         const transaction = new Transaction().add(
             createAssociatedTokenAccountInstruction(
@@ -242,7 +242,7 @@ describe("ratelimit-transfer-hook", () => {
                     "100.0",
                     TOKEN_2022_PROGRAM_ID,
                 )),
-                new anchor.BN(20)
+                new anchor.BN(10)
             )
             .accounts({
                 authority: wallet.publicKey,
@@ -265,9 +265,9 @@ describe("ratelimit-transfer-hook", () => {
     });
 
 
-    it("Transfer Hook with Extra Account Meta", async () => {
+    it("Transfer Hook Succeeds", async () => {
         // 1 tokens
-        const amount = 1 * 10 ** decimals;
+        const amount = 99 * 10 ** decimals;
 
 
         // Standard token transfer instruction
@@ -300,7 +300,87 @@ describe("ratelimit-transfer-hook", () => {
         );
         console.log("Transfer Signature:", txSig);
         await new Promise((resolve) => setTimeout(resolve, 1000));
+    });
+
+    it("Transfer Hook Fails Due To Rate Limit Exceeded", async () => {
+        // 1 tokens
+        const amount = 99 * 10 ** decimals;
 
 
+        // Standard token transfer instruction
+        const transferInstruction = createTransferCheckedInstruction(
+            sourceTokenAccount,
+            mint.publicKey,
+            destinationTokenAccount,
+            wallet.publicKey,
+            amount,
+            decimals,
+            [],
+            TOKEN_2022_PROGRAM_ID,
+        );
+        const ix = await addExtraAccountsToInstruction(
+            connection,
+            transferInstruction,
+            mint.publicKey,
+            "confirmed",
+            TOKEN_2022_PROGRAM_ID,
+        );
+
+
+        const transaction = new Transaction().add(
+            ix,
+        );
+        try {
+            const txSig = await sendAndConfirmTransaction(
+                connection,
+                transaction,
+                [wallet.payer],
+            );
+            // If we get here, the transaction succeeded when it shouldn't have
+            assert.fail("Transaction should have failed");
+        } catch (error) {
+            // Verify it's the right type of error
+            expect(error).to.be.instanceOf(SendTransactionError);
+        }
+    });
+    it("Sleeps to allow rate limit to expire", async () => {
+        await new Promise((resolve) => setTimeout(resolve, 11000));
+    })
+
+    it("Transfer Hook Succeeds After Roll Over", async () => {
+        // 1 tokens
+        const amount = 99 * 10 ** decimals;
+
+
+        // Standard token transfer instruction
+        const transferInstruction = createTransferCheckedInstruction(
+            sourceTokenAccount,
+            mint.publicKey,
+            destinationTokenAccount,
+            wallet.publicKey,
+            amount,
+            decimals,
+            [],
+            TOKEN_2022_PROGRAM_ID,
+        );
+        const ix = await addExtraAccountsToInstruction(
+            connection,
+            transferInstruction,
+            mint.publicKey,
+            "confirmed",
+            TOKEN_2022_PROGRAM_ID,
+        );
+
+
+        const transaction = new Transaction().add(
+            ix,
+        );
+        const txSig = await sendAndConfirmTransaction(
+            connection,
+            transaction,
+            [wallet.payer],
+        );
+        console.log("Transfer Signature:", txSig);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
     });
 });

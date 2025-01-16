@@ -61,12 +61,13 @@ impl TransferHook<'_> {
 
         // evaluate all block lists to see if any of the owners are denied
         for remaining_account in ctx.remaining_accounts.iter() {
-            let discriminator = &remaining_account.try_borrow_data()?[0..8];
-            if MintRateLimit::discriminator().eq(discriminator) {
+            let mut discriminator: [u8; 8] = [0u8; 8];
+            discriminator.copy_from_slice(&remaining_account.try_borrow_data()?[0..8]);
+            if MintRateLimit::discriminator().eq(&discriminator) {
                 let mut rate_limit: Account<MintRateLimit> = Account::try_from(remaining_account)?;
                 rate_limit.check_and_update(None, amount)?;
                 rate_limit.exit(&crate::ID)?;
-            } else if AuthorityRateLimit::discriminator().eq(discriminator) {
+            } else if AuthorityRateLimit::discriminator().eq(&discriminator) {
                 panic!("unsupported rate limit");
             } else {
                 return Err(RateLimitError::InvalidRateLimitAccount.into())
