@@ -36,7 +36,7 @@ Note: Integration of this in the transfer hook is not yet complete
 
 ## Block List
 
-The `sanction_transfer_hook` program provides an implementation of the transfer hook interface tht allows for block list functionality to disallow sets of addresses from being able to send/receive tokens.
+The `block_lists` program provides an implementation of the transfer hook interface tht allows for block list functionality to disallow sets of addresses from being able to send/receive tokens.
 
 Addresses included in the block list are evaluated against the source/recipient token account owners, as well as the address being used to sign the transfer. If any of the addresses are in the block list, the transfer is aborted.
 

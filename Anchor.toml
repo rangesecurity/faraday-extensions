@@ -6,7 +6,7 @@ skip-lint = false
 
 [programs.localnet]
 rate_limits = "GFfVeXyUvceCu1H1PPTBUvwYJeDQjXusgzjrAjHf2kHn"
-sanctioned_transfer_hook = "D3Cna2aGhRxzfeoiCaQMU2LZPxPuWXpsJAFqiMdkhXCo"
+block_lists = "D3Cna2aGhRxzfeoiCaQMU2LZPxPuWXpsJAFqiMdkhXCo"
 
 [registry]
 url = "https://api.apr.dev"

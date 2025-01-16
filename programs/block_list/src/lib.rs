@@ -12,7 +12,7 @@ pub use state::*;
 declare_id!("D3Cna2aGhRxzfeoiCaQMU2LZPxPuWXpsJAFqiMdkhXCo");
 
 #[program]
-pub mod sanctioned_transfer_hook {
+pub mod block_lists {
     use spl_transfer_hook_interface::instruction::TransferHookInstruction;
 
     use super::*;
