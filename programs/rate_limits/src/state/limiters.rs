@@ -1,4 +1,5 @@
 use anchor_lang::{prelude::*, solana_program::clock::UnixTimestamp};
+use crate::error::RateLimitError;
 
 /// Trait that defines the interface a rate limit must conform to.
 /// 
@@ -34,7 +35,19 @@ pub struct LimiterEntry {
 
 /// Denotes the possible types of rate limits which can be created
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug)]
+#[repr(u8)]
 pub enum RateLimitType {
     AuthorityBased,
     MintBased,
+}
+
+impl TryFrom<u8> for RateLimitType {
+    type Error = RateLimitError;
+    fn try_from(value: u8) -> std::result::Result<Self, Self::Error> {
+        match value {
+            0 => Ok(RateLimitType::AuthorityBased),
+            1 => Ok(RateLimitType::MintBased),
+            _ => Err(RateLimitError::InvalidRateLimitType)
+        }
+    }
 }

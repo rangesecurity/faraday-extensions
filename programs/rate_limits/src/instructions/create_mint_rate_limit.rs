@@ -1,6 +1,6 @@
 use {
     crate::{
-        error::ErrorCode, limiters::RateLimitType, management::Management,
+        error::RateLimitError, limiters::RateLimitType, management::Management,
         mint_rate_limit::MintRateLimit,
     },
     anchor_lang::{
@@ -18,7 +18,7 @@ use {
 };
 
 #[derive(Accounts)]
-pub struct CreateRateLimit<'info> {
+pub struct CreateMintBasedRateLimit<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
     #[account(
@@ -30,8 +30,14 @@ pub struct CreateRateLimit<'info> {
     /// CHECK: validated through account metas
     pub mint: AccountInfo<'info>,
     /// CHECK: vlaidated manually
-    #[account(mut)]
-    pub rate_limit: AccountInfo<'info>,
+    #[account(
+        init,
+        seeds = [b"mint_based", mint.key.as_ref()],
+        payer = authority,
+        space = MintRateLimit::space(),
+        bump
+    )]
+    pub rate_limit: Account<'info, MintRateLimit>,
     /// CHECK: ExtraAccountMetaList Account, must use these seeds
     #[account(
         mut,
@@ -43,61 +49,24 @@ pub struct CreateRateLimit<'info> {
     pub system_program: Program<'info, System>,
 }
 
-impl CreateRateLimit<'_> {
+impl CreateMintBasedRateLimit<'_> {
     /// Creates and initializes a rate limit account, which sets the current period start to the current time
-    pub fn handler<'info>(
-        ctx: Context<'_, 'info, 'info, 'info, CreateRateLimit<'info>>,
-        limit_type: RateLimitType,
+    pub fn handler(
+        ctx: Context<CreateMintBasedRateLimit>,
         period_limit: u64,
         period_duration: u64,
     ) -> Result<()> {
-        let nonce = &[Self::validations(&ctx, limit_type)?];
+        Self::validations(&ctx)?;
 
         // initialize the rate limit
         {
-            let mint_key = ctx.accounts.mint.key();
-            let (space_needed, seed) = match limit_type {
-                RateLimitType::MintBased => {
-                    let space = MintRateLimit::space();
-                    (space, [b"mint_based", mint_key.as_ref(), nonce])
-                }
-                RateLimitType::AuthorityBased => panic!("unsupported"),
-            };
-
-            let lamports_need = Rent::get()?.minimum_balance(space_needed);
-
-            let ix = system_instruction::create_account(
-                ctx.accounts.authority.key,
-                ctx.accounts.rate_limit.key,
-                lamports_need,
-                space_needed as u64,
-                &crate::ID,
-            );
-            invoke_signed(
-                &ix,
-                &[
-                    ctx.accounts.authority.to_account_info(),
-                    ctx.accounts.rate_limit.to_account_info(),
-                    ctx.accounts.system_program.to_account_info(),
-                ],
-                &[&seed[..]],
+            let rate_limit= &mut ctx.accounts.rate_limit;
+            rate_limit.initialize(
+                period_limit,
+                period_duration,
+                Clock::get()?.unix_timestamp,
+                ctx.accounts.mint.key(),
             )?;
-
-            // initialize the rate limit account
-            match limit_type {
-                RateLimitType::MintBased => {
-                    let mut account: Account<MintRateLimit> =
-                        Account::try_from_unchecked(&ctx.accounts.rate_limit)?;
-                    account.initialize(
-                        period_limit,
-                        period_duration,
-                        Clock::get()?.unix_timestamp,
-                        ctx.accounts.mint.key(),
-                    )?;
-                    account.exit(&crate::ID)?;
-                }
-                RateLimitType::AuthorityBased => panic!("unsupported"),
-            }
         }
 
         // get current accounts
@@ -152,33 +121,16 @@ impl CreateRateLimit<'_> {
         Ok(())
     }
     // returns the nocne used to derive the rate limit account
-    fn validations<'info>(
-        ctx: &Context<'_, '_, 'info, 'info, CreateRateLimit<'info>>,
-        limit_type: RateLimitType,
-    ) -> Result<u8> {
+    fn validations(
+        ctx: &Context<CreateMintBasedRateLimit>,
+    ) -> Result<()> {
         require!(
             ctx.accounts
                 .management
                 .is_authorized(ctx.accounts.authority.key()),
-            ErrorCode::Unauthorized
+                RateLimitError::Unauthorized
         );
 
-        // validated provided rate limit account is correct
-        let nonce = match limit_type {
-            RateLimitType::MintBased => {
-                let (expected_rate_limit_account, nonce) =
-                    MintRateLimit::derive_pda(ctx.accounts.mint.key());
-                require!(
-                    ctx.accounts.rate_limit.key() == expected_rate_limit_account,
-                    ErrorCode::InvalidRateLimitAccount
-                );
-                nonce
-            }
-            RateLimitType::AuthorityBased => {
-                panic!("unsupported");
-            }
-        };
-
-        Ok(nonce)
+        Ok(())
     }
 }

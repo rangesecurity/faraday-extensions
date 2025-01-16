@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 #[error_code]
-pub enum ErrorCode {
+pub enum RateLimitError {
     #[msg("Custom error message")]
     CustomError,
     #[msg("Unauthorized signer")]
@@ -13,5 +13,9 @@ pub enum ErrorCode {
     #[msg("Invalid check and update")]
     InvalidCheckAndUpdate,
     #[msg("Invalid rate limit account provided")]
-    InvalidRateLimitAccount
+    InvalidRateLimitAccount,
+    #[msg("Invalid rate limit type provided")]
+    InvalidRateLimitType,
+    #[msg("Provided account meta list account is invalid")]
+    InvalidExtraAccountMetasList,
 }

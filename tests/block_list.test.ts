@@ -32,7 +32,7 @@ import {
 } from "@solana/spl-token";
 import { assert, expect } from "chai";
 
-describe("transfer-hook", () => {
+describe("blocklist-transfer-hook", () => {
     // Configure the client to use the local cluster.
     const provider = anchor.AnchorProvider.env();
     anchor.setProvider(provider);

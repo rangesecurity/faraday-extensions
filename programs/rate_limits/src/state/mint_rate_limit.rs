@@ -1,5 +1,5 @@
 use anchor_lang::{prelude::*, solana_program::clock::UnixTimestamp};
-use crate::error::ErrorCode;
+use crate::error::RateLimitError;
 use super::limiters::{LimiterEntry, RateLimitExt};
 
 
@@ -51,7 +51,7 @@ impl MintRateLimit {
         self.current_time = time;
     }
     fn new(period_limit: u64, period_duration: u64, start_time: UnixTimestamp, mint: Pubkey) -> Result<Self> {
-        require!(period_duration > 0, ErrorCode::InvalidPeriodConfig);
+        require!(period_duration > 0, RateLimitError::InvalidPeriodConfig);
         #[cfg(test)]
         return Ok(Self {
             period_limit,
@@ -118,7 +118,7 @@ impl RateLimitExt for MintRateLimit {
 
         // Check if the transfer would exceed the period limit
         if new_value_transferred > period_limit {
-            return err!(ErrorCode::RateLimitExceeded);
+            return err!(RateLimitError::RateLimitExceeded);
         }
 
         self.value_transferred = new_value_transferred;

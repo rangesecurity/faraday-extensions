@@ -1,5 +1,5 @@
 use anchor_lang::{prelude::*, solana_program::clock::UnixTimestamp};
-use crate::error::ErrorCode;
+use crate::error::RateLimitError;
 use super::limiters::{LimiterEntry, RateLimitExt};
 
 
@@ -23,7 +23,7 @@ pub struct AuthorityRateLimit {
 
 impl AuthorityRateLimit {
     pub fn new(period_limit: u64, period_duration: u64, start_time: UnixTimestamp, mint: Pubkey) -> Result<Self> {
-        require!(period_duration > 0, ErrorCode::InvalidPeriodConfig);
+        require!(period_duration > 0, RateLimitError::InvalidPeriodConfig);
         #[cfg(test)]
         return Ok(Self {
             entries: Vec::new(),
@@ -108,7 +108,7 @@ impl RateLimitExt for AuthorityRateLimit {
 
     fn check_and_update(&mut self, authority: Option<Pubkey>, amount: u64) -> Result<()> {
         let Some(authority) = authority else {
-            return Err(ErrorCode::InvalidCheckAndUpdate.into());
+            return Err(RateLimitError::InvalidCheckAndUpdate.into());
         };
 
         // First check if we need to roll over to a new period
@@ -126,7 +126,7 @@ impl RateLimitExt for AuthorityRateLimit {
 
         // Check if the transfer would exceed the period limit
         if entry.value_transferred.saturating_add(amount) > period_limit {
-            return err!(ErrorCode::RateLimitExceeded);
+            return err!(RateLimitError::RateLimitExceeded);
         }
 
         // Update the transferred amount

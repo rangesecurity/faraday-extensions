@@ -1,5 +1,5 @@
 use {
-    crate::{error::ErrorCode, management::Management},
+    crate::{error::RateLimitError, management::Management},
     anchor_lang::{
         prelude::*, solana_program::{program::invoke_signed, system_instruction}, system_program::{create_account, CreateAccount}
     },
@@ -19,7 +19,7 @@ pub struct InitializeExtraAccountMetaList<'info> {
     #[account(mut)]
     authority: Signer<'info>,
     #[account(
-        constraint = management.authority == authority.key() @ ErrorCode::Unauthorized
+        constraint = management.authority == authority.key() @ RateLimitError::Unauthorized
     )]
     pub management: Account<'info, Management>,
 
