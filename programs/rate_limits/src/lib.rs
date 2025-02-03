@@ -9,34 +9,29 @@ pub use constants::*;
 pub use instructions::*;
 pub use state::*;
 
-declare_id!("D3Cna2aGhRxzfeoiCaQMU2LZPxPuWXpsJAFqiMdkhXCo");
+declare_id!("GFfVeXyUvceCu1H1PPTBUvwYJeDQjXusgzjrAjHf2kHn");
 
 #[program]
-pub mod sanctioned_transfer_hook {
+pub mod rate_limits {
     use spl_transfer_hook_interface::instruction::TransferHookInstruction;
 
     use super::*;
+
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         Initialize::handler(ctx)
-    }
-    pub fn create_block_listt(ctx: Context<CreateBlockList>, list_number: u64) -> Result<()> {
-        CreateBlockList::handler(ctx, list_number)
-    }
-    pub fn add_to_block_list(ctx: Context<ManageBlockList>, addresses: Vec<Pubkey>) -> Result<()> {
-        ManageBlockList::add_handler(ctx, addresses)
-    }
-    pub fn remove_from_block_list(
-        ctx: Context<ManageBlockList>,
-        addresses: Vec<Pubkey>,
-    ) -> Result<()> {
-        ManageBlockList::remove_handler(ctx, addresses)
     }
     pub fn initialize_extra_account_meta_list(
         ctx: Context<InitializeExtraAccountMetaList>,
     ) -> Result<()> {
         InitializeExtraAccountMetaList::handler(ctx)
     }
-
+    pub fn create_mint_rate_limit(
+        ctx: Context<CreateMintBasedRateLimit>,
+        period_limit: u64,
+        period_duration: u64,
+    ) -> Result<()> {
+        CreateMintBasedRateLimit::handler(ctx, period_limit, period_duration)
+    }
     pub fn transfer_hook<'info>(ctx: Context<'_, '_, 'info, 'info,TransferHook<'info>>, amount: u64) -> Result<()> {
         TransferHook::handler(ctx, amount)
     }
